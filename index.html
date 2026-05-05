@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* --- IDENTICAL CSS (unchanged) --- */
         :root {
             --green: #1D9E75; --blue: #378ADD; --amber: #BA7517;
             --red: #C0392B; --purple: #7F77DD; --gray: #888780;
@@ -27,9 +26,9 @@
         .top-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
         .title { font-family: 'Instrument Serif', serif; font-size: 26px; }
         .subtitle { font-size: 12px; color: var(--muted); margin-top: 3px; }
-        .session-select-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .session-select-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
         .session-select-wrap label { font-size: 12px; color: var(--muted); }
-        .session-select-wrap select { font-family: 'DM Sans', sans-serif; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); font-size: 13px; }
+        .session-select-wrap select, .session-select-wrap input { font-family: 'DM Sans', sans-serif; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); font-size: 13px; }
         .save-status { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 10px; min-height: 16px; }
         .prog-wrap { margin-bottom: 20px; }
         .prog-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
@@ -141,7 +140,7 @@
     <div class="tab-panel active" id="panel-roadmap">
         <div class="top-header">
             <div><div class="title">College Roadmap</div><div class="subtitle">Plan your application journey</div></div>
-            <div class="sat-pill" id="sat-pill">SAT: Sep 12, 2026</div>
+            <div class="sat-pill" id="sat-pill">SAT: not set</div>
         </div>
         <div class="session-select-wrap">
             <label for="session-select">Session:</label>
@@ -150,14 +149,13 @@
                 <option value="spring2028">Spring 2028</option>
                 <option value="fall2028">Fall 2028</option>
             </select>
+            <label for="sat-date-input" style="margin-left:12px;">SAT Date:</label>
+            <input type="date" id="sat-date-input">
         </div>
         <div class="save-status" id="save-status"></div>
-
-        <!-- NEW: Info box -->
         <div class="info-box">
             ℹ️ <strong>Your data stays in this browser only.</strong> Add your schools and check tasks – everything saves automatically when you close or switch tabs. To start completely fresh, click the "Clear All" button. Use the same browser to return to your saved progress.
         </div>
-
         <div class="prog-wrap">
             <div class="prog-top"><span id="prog-label">Loading…</span><span id="prog-pct">0%</span></div>
             <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
@@ -171,7 +169,7 @@
                 <div><div class="col-label" style="color:#065F46">Safety</div><div class="col-input-row"><input id="inp-safety" placeholder="Add school…"><button id="btn-safety">+</button></div><div class="ctag-list" id="list-safety"></div></div>
             </div>
         </div>
-        <div class="tip">💡 <strong>SAT tip:</strong> Aim for 3 full-length practice tests per month in Jul–Aug. Take the real test Sep 12 — you'll have time to retake in Oct or Nov if needed.</div>
+        <div class="tip">💡 <strong>SAT tip:</strong> Aim for 3 full-length practice tests per month in the two months before your SAT date. Take the real test — you'll have time to retake in subsequent months if needed.</div>
     </div>
 
     <div class="tab-panel" id="panel-map">
@@ -202,9 +200,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function() {
-    // ---------- PHASES (static templates) ----------
+    // ---------- PHASE TEMPLATES (relative to SAT date) ----------
     const BASE_PHASES = [
-        { title:"Foundation", dateTemplate:"May – Jun {prevYear}", color:"#1D9E75", tasks:[
+        { title:"Foundation", monthsBefore:[-16,-15], color:"#1D9E75", tasks:[
             { text:"Research college types: liberal arts vs. research universities", tag:null },
             { text:"Start building your college list (10–14 schools total)", tag:null },
             { text:"Look up each school's SAT score ranges & GPA expectations", tag:"key" },
@@ -213,7 +211,7 @@
             { text:"Identify 2–3 teachers for letters of recommendation", tag:"rec" },
             { text:"Start a running list of activities, awards, and achievements", tag:null },
         ]},
-        { title:"Prep & Essays", dateTemplate:"Jul – Aug {prevYear}", color:"#378ADD", tasks:[
+        { title:"Prep & Essays", monthsBefore:[-14,-13], color:"#378ADD", tasks:[
             { text:"Intensive SAT practice (aim for 2–3 full tests per month)", tag:"sat" },
             { text:"Formally ask recommenders — give them a brag sheet", tag:"rec" },
             { text:"Open Common App account (opens Aug 1)", tag:"key" },
@@ -222,15 +220,15 @@
             { text:"Finalize and rank your college list", tag:null },
             { text:"Prepare your activities list (10 slots on Common App)", tag:null },
         ]},
-        { title:"SAT + Launch", dateTemplate:"Sep {prevYear}", color:"#BA7517", tasks:[
+        { title:"SAT + Launch", monthsBefore:[-12], color:"#BA7517", tasks:[
             { text:"Take SAT — your primary test date", tag:"sat" },
             { text:"Finalize personal statement with feedback from a trusted reader", tag:"essay" },
             { text:"Complete Common App profile sections (bio, family, education)", tag:"key" },
             { text:"Begin writing supplemental essays for reach schools", tag:"essay" },
-            { text:"Register for SAT retake in Oct or Nov if needed", tag:"sat" },
+            { text:"Register for SAT retake if needed", tag:"sat" },
             { text:"Request transcripts from your school's registrar", tag:"key" },
         ]},
-        { title:"Early Applications", dateTemplate:"Oct – Nov {prevYear}", color:"#C0392B", tasks:[
+        { title:"Early Applications", monthsBefore:[-11,-10], color:"#C0392B", tasks:[
             { text:"Submit Early Decision / Early Action apps (deadlines: Nov 1 or Nov 15)", tag:"key" },
             { text:"Submit any SAT retake scores if applicable", tag:"sat" },
             { text:"Complete FAFSA (opens Oct 1 — file as early as possible)", tag:"fin" },
@@ -238,14 +236,14 @@
             { text:"Confirm all recommenders submitted their letters", tag:"rec" },
             { text:"Continue drafting Regular Decision supplementals", tag:"essay" },
         ]},
-        { title:"Regular Decision", dateTemplate:"Dec {prevYear} – Jan {entryYear}", color:"#7F77DD", tasks:[
+        { title:"Regular Decision", monthsBefore:[-9,-7], color:"#7F77DD", tasks:[
             { text:"Review EA/ED decisions — if deferred, write a letter of continued interest", tag:"key" },
             { text:"Submit all Regular Decision applications (deadlines: Jan 1 or Jan 15)", tag:"key" },
             { text:"Confirm financial aid documents are complete", tag:"fin" },
             { text:"Continue any scholarship applications with later deadlines", tag:"fin" },
             { text:"Proofread every application before final submission", tag:null },
         ]},
-        { title:"Decision Season", dateTemplate:"Feb – May {entryYear}", color:"#888780", tasks:[
+        { title:"Decision Season", monthsBefore:[-6,-4], color:"#888780", tasks:[
             { text:"Receive Regular Decision results (March–April)", tag:"key" },
             { text:"Compare financial aid award letters carefully", tag:"fin" },
             { text:"Visit campuses of your top choices if possible", tag:null },
@@ -255,31 +253,294 @@
         ]},
     ];
 
-    function getPhasesForSession(session) {
-        let entryYear, term;
-        if (session.startsWith('fall')) {
-            term = 'fall';
-            entryYear = parseInt(session.replace('fall',''));
-        } else {
-            term = 'spring';
-            entryYear = parseInt(session.replace('spring',''));
-        }
-        const prevYear = term === 'fall' ? entryYear - 1 : entryYear - 1; // same offset for simplicity
-        return BASE_PHASES.map(phase => ({
-            ...phase,
-            date: phase.dateTemplate
-                .replace('{prevYear}', prevYear)
-                .replace('{entryYear}', entryYear)
-        }));
+    function getPhasesForDate(satDate) {
+        const sat = new Date(satDate + 'T00:00:00');
+        return BASE_PHASES.map(phase => {
+            const [startMon, endMon] = phase.monthsBefore;
+            const startDate = new Date(sat.getFullYear(), sat.getMonth() + startMon, 1);
+            let dateStr = '';
+            if (endMon !== undefined) {
+                const endDate = new Date(sat.getFullYear(), sat.getMonth() + endMon + 1, 0);
+                dateStr = `${startDate.toLocaleString('default', { month:'short' })} – ${endDate.toLocaleString('default', { month:'short' })} ${endDate.getFullYear()}`;
+            } else {
+                dateStr = `${startDate.toLocaleString('default', { month:'short' })} ${startDate.getFullYear()}`;
+            }
+            return { ...phase, date: dateStr };
+        });
     }
 
     const TAG_CLASS = { sat:"tag-sat", essay:"tag-essay", rec:"tag-rec", fin:"tag-fin", key:"tag-key" };
     const TAG_LABEL = { sat:"SAT", essay:"Essay", rec:"Rec letter", fin:"Financial aid", key:"Important" };
 
-    // ---------- COLLEGE DATABASE (unchanged) ----------
-    const COLLEGE_DB = { /* ... same 250+ entries ... */ };
+    // ---------- COLLEGE DATABASE (250+ schools) ----------
+    const COLLEGE_DB = {
+        "Harvard University": { sat:1540, gpa:4.18, policy:"Test-Required", inState:56000, outState:56000, intl:56000 },
+        "Stanford University": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+        "Massachusetts Institute of Technology": { sat:1550, gpa:4.0, policy:"Test-Required", inState:58000, outState:58000, intl:58000 },
+        "Princeton University": { sat:1530, gpa:3.9, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+        "Yale University": { sat:1540, gpa:4.14, policy:"Test-Required", inState:58000, outState:58000, intl:58000 },
+        "Columbia University": { sat:1530, gpa:4.12, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+        "University of Chicago": { sat:1530, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Duke University": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Johns Hopkins University": { sat:1520, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Northwestern University": { sat:1510, gpa:4.1, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Cornell University": { sat:1510, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "University of Pennsylvania": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Brown University": { sat:1510, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Dartmouth College": { sat:1500, gpa:4.0, policy:"Test-Required", inState:60000, outState:60000, intl:60000 },
+        "Vanderbilt University": { sat:1500, gpa:3.9, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+        "Rice University": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+        "Washington University in St. Louis": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "University of Notre Dame": { sat:1490, gpa:4.0, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Georgetown University": { sat:1490, gpa:4.0, policy:"Test-Required", inState:60000, outState:60000, intl:60000 },
+        "Carnegie Mellon University": { sat:1510, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "University of Virginia": { sat:1460, gpa:4.0, policy:"Test-Optional", inState:21000, outState:56000, intl:56000 },
+        "University of Michigan": { sat:1460, gpa:3.9, policy:"Test-Optional", inState:17000, outState:54000, intl:54000 },
+        "University of California, Los Angeles": { sat:1480, gpa:4.0, policy:"Test-Blind*", inState:14000, outState:44000, intl:44000 },
+        "University of California, Berkeley": { sat:1500, gpa:4.0, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+        "University of Southern California": { sat:1470, gpa:3.9, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+        "University of North Carolina Chapel Hill": { sat:1430, gpa:4.0, policy:"Test-Optional", inState:9000, outState:37000, intl:37000 },
+        "Wake Forest University": { sat:1430, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Tufts University": { sat:1480, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "University of Florida": { sat:1380, gpa:4.0, policy:"Test-Required", inState:6300, outState:29000, intl:29000 },
+        "University of Texas at Austin": { sat:1400, gpa:3.8, policy:"Test-Required", inState:11000, outState:40000, intl:40000 },
+        "Georgia Institute of Technology": { sat:1480, gpa:4.0, policy:"Test-Required", inState:12000, outState:33000, intl:33000 },
+        "University of California, San Diego": { sat:1440, gpa:4.0, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+        "University of California, Irvine": { sat:1380, gpa:3.9, policy:"Test-Blind*", inState:14000, outState:44000, intl:44000 },
+        "University of California, Davis": { sat:1350, gpa:3.9, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+        "University of California, Santa Barbara": { sat:1400, gpa:4.0, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+        "University of Illinois Urbana-Champaign": { sat:1430, gpa:3.83, policy:"Test-Optional", inState:17000, outState:35000, intl:35000 },
+        "University of Wisconsin Madison": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:11000, outState:39000, intl:39000 },
+        "Boston College": { sat:1450, gpa:3.9, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+        "Boston University": { sat:1430, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Brandeis University": { sat:1420, gpa:3.8, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Case Western Reserve University": { sat:1430, gpa:3.9, policy:"Test-Optional", inState:55000, outState:55000, intl:55000 },
+        "College of William & Mary": { sat:1410, gpa:4.0, policy:"Test-Optional", inState:24000, outState:47000, intl:47000 },
+        "George Washington University": { sat:1380, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Lehigh University": { sat:1380, gpa:3.8, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+        "Northeastern University": { sat:1480, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Rensselaer Polytechnic Institute": { sat:1420, gpa:3.9, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+        "Santa Clara University": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+        "Southern Methodist University": { sat:1350, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "University of Rochester": { sat:1410, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Williams College": { sat:1480, gpa:4.0, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+        "Amherst College": { sat:1460, gpa:4.0, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+        "Swarthmore College": { sat:1470, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Pomona College": { sat:1460, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Bowdoin College": { sat:1450, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Wellesley College": { sat:1440, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Carleton College": { sat:1440, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Claremont McKenna College": { sat:1450, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Middlebury College": { sat:1450, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Washington and Lee University": { sat:1420, gpa:3.9, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Smith College": { sat:1370, gpa:3.9, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Vassar College": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Grinnell College": { sat:1440, gpa:4.0, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Hamilton College": { sat:1430, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Colgate University": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Davidson College": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Haverford College": { sat:1440, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "University of Richmond": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Bucknell University": { sat:1340, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Lafayette College": { sat:1350, gpa:3.7, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Union College": { sat:1340, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Franklin and Marshall College": { sat:1310, gpa:3.6, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Denison University": { sat:1280, gpa:3.6, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Kenyon College": { sat:1380, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Macalester College": { sat:1370, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Oberlin College": { sat:1360, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Scripps College": { sat:1370, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Barnard College": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "Bates College": { sat:1370, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Colorado College": { sat:1350, gpa:3.8, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+        "University of Miami": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:55000, outState:55000, intl:55000 },
+        "Tulane University": { sat:1390, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Pepperdine University": { sat:1330, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "Villanova University": { sat:1380, gpa:3.9, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+        "University of Georgia": { sat:1330, gpa:3.9, policy:"Test-Required", inState:12000, outState:31000, intl:31000 },
+        "Clemson University": { sat:1310, gpa:3.8, policy:"Test-Optional", inState:15000, outState:39000, intl:39000 },
+        "Virginia Tech": { sat:1320, gpa:3.9, policy:"Test-Optional", inState:15000, outState:34000, intl:34000 },
+        "Texas A&M University": { sat:1300, gpa:3.8, policy:"Test-Required", inState:12000, outState:40000, intl:40000 },
+        "University of Washington": { sat:1370, gpa:3.8, policy:"Test-Optional", inState:12000, outState:40000, intl:40000 },
+        "Purdue University": { sat:1350, gpa:3.7, policy:"Test-Optional", inState:10000, outState:29000, intl:29000 },
+        "Ohio State University": { sat:1360, gpa:3.8, policy:"Test-Optional", inState:12000, outState:36000, intl:36000 },
+        "Penn State University": { sat:1290, gpa:3.7, policy:"Test-Optional", inState:19000, outState:36000, intl:36000 },
+        "University of Pittsburgh": { sat:1330, gpa:3.8, policy:"Test-Optional", inState:20000, outState:36000, intl:36000 },
+        "Rutgers University": { sat:1370, gpa:3.7, policy:"Test-Optional", inState:16000, outState:34000, intl:34000 },
+        "University of Maryland College Park": { sat:1410, gpa:4.0, policy:"Test-Optional", inState:11000, outState:39000, intl:39000 },
+        "University of Connecticut": { sat:1330, gpa:3.7, policy:"Test-Optional", inState:19000, outState:42000, intl:42000 },
+        "University of Massachusetts Amherst": { sat:1320, gpa:3.8, policy:"Test-Optional", inState:17000, outState:37000, intl:37000 },
+        "University of South Florida": { sat:1290, gpa:3.9, policy:"Test-Required", inState:6000, outState:17000, intl:17000 },
+        "University of Central Florida": { sat:1280, gpa:3.8, policy:"Test-Optional", inState:6000, outState:22000, intl:22000 },
+        "Florida State University": { sat:1300, gpa:3.8, policy:"Test-Required", inState:6000, outState:22000, intl:22000 },
+        "University of Alabama": { sat:1340, gpa:3.9, policy:"Test-Optional", inState:11000, outState:32000, intl:32000 },
+        "Auburn University": { sat:1240, gpa:3.9, policy:"Test-Optional", inState:12000, outState:33000, intl:33000 },
+        "University of Tennessee": { sat:1230, gpa:3.7, policy:"Test-Required", inState:13000, outState:32000, intl:32000 },
+        "University of South Carolina": { sat:1240, gpa:3.7, policy:"Test-Optional", inState:13000, outState:34000, intl:34000 },
+        "University of Kentucky": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:13000, outState:32000, intl:32000 },
+        "University of Kansas": { sat:1210, gpa:3.6, policy:"Test-Optional", inState:11000, outState:28000, intl:28000 },
+        "University of Oklahoma": { sat:1230, gpa:3.6, policy:"Test-Optional", inState:12000, outState:27000, intl:27000 },
+        "University of Nebraska Lincoln": { sat:1160, gpa:3.5, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+        "University of Iowa": { sat:1230, gpa:3.6, policy:"Test-Optional", inState:10000, outState:32000, intl:32000 },
+        "University of Missouri": { sat:1260, gpa:3.5, policy:"Test-Optional", inState:12000, outState:30000, intl:30000 },
+        "University of Arkansas": { sat:1210, gpa:3.6, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+        "Louisiana State University": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:12000, outState:29000, intl:29000 },
+        "Mississippi State University": { sat:1190, gpa:3.5, policy:"Test-Optional", inState:9000, outState:25000, intl:25000 },
+        "Ole Miss": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:9000, outState:26000, intl:26000 },
+        "Texas Tech University": { sat:1140, gpa:3.5, policy:"Test-Optional", inState:10000, outState:24000, intl:24000 },
+        "University of Houston": { sat:1200, gpa:3.5, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+        "University of Texas at Dallas": { sat:1330, gpa:3.8, policy:"Test-Optional", inState:13000, outState:39000, intl:39000 },
+        "University of North Texas": { sat:1120, gpa:3.4, policy:"Test-Optional", inState:11000, outState:26000, intl:26000 },
+        "Arizona State University": { sat:1300, gpa:3.5, policy:"Test-Optional", inState:12000, outState:30000, intl:30000 },
+        "University of Arizona": { sat:1210, gpa:3.5, policy:"Test-Optional", inState:13000, outState:37000, intl:37000 },
+        "University of Utah": { sat:1270, gpa:3.6, policy:"Test-Optional", inState:10000, outState:29000, intl:29000 },
+        "Colorado State University": { sat:1180, gpa:3.6, policy:"Test-Optional", inState:12000, outState:32000, intl:32000 },
+        "University of Colorado Boulder": { sat:1270, gpa:3.7, policy:"Test-Optional", inState:13000, outState:40000, intl:40000 },
+        "Oregon State University": { sat:1190, gpa:3.5, policy:"Test-Optional", inState:12000, outState:33000, intl:33000 },
+        "University of Oregon": { sat:1210, gpa:3.5, policy:"Test-Optional", inState:14000, outState:39000, intl:39000 },
+        "Washington State University": { sat:1110, gpa:3.4, policy:"Test-Optional", inState:12000, outState:28000, intl:28000 },
+        "Michigan State University": { sat:1320, gpa:3.7, policy:"Test-Optional", inState:16000, outState:42000, intl:42000 },
+        "Indiana University Bloomington": { sat:1300, gpa:3.8, policy:"Test-Optional", inState:11000, outState:38000, intl:38000 },
+        "University of Illinois Chicago": { sat:1230, gpa:3.5, policy:"Test-Optional", inState:15000, outState:30000, intl:30000 },
+        "Iowa State University": { sat:1310, gpa:3.7, policy:"Test-Optional", inState:10000, outState:26000, intl:26000 },
+        "Kansas State University": { sat:1180, gpa:3.6, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+        "Oklahoma State University": { sat:1170, gpa:3.5, policy:"Test-Optional", inState:9000, outState:25000, intl:25000 },
+        "Missouri S&T": { sat:1380, gpa:3.85, policy:"Test-Optional", inState:11000, outState:30000, intl:30000 },
+        "University of Minnesota Twin Cities": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:15000, outState:35000, intl:35000 },
+        "Fisk University": { sat:1210, gpa:3.5, policy:"Test-Optional", inState:24000, outState:24000, intl:24000 },
+        "Clark University": { sat:1370, gpa:3.7, policy:"Test-Optional", inState:50000, outState:50000, intl:50000 },
+        "American University": { sat:1330, gpa:3.7, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+        "Baylor University": { sat:1290, gpa:3.8, policy:"Test-Optional", inState:50000, outState:50000, intl:50000 },
+        "Brigham Young University": { sat:1330, gpa:3.9, policy:"Test-Optional", inState:6000, outState:6000, intl:6000 },
+        "Drexel University": { sat:1280, gpa:3.7, policy:"Test-Optional", inState:57000, outState:57000, intl:57000 },
+        "Loyola Marymount University": { sat:1300, gpa:3.8, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+        "Marquette University": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:47000, outState:47000, intl:47000 },
+        "Rochester Institute of Technology": { sat:1290, gpa:3.7, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+        "Stevens Institute of Technology": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+        "Syracuse University": { sat:1290, gpa:3.7, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Texas Christian University": { sat:1260, gpa:3.7, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+        "University of Denver": { sat:1250, gpa:3.7, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+        "University of San Diego": { sat:1290, gpa:3.8, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+        "Worcester Polytechnic Institute": { sat:1370, gpa:3.9, policy:"Test-Optional", inState:57000, outState:57000, intl:57000 },
+        "Yeshiva University": { sat:1320, gpa:3.7, policy:"Test-Optional", inState:49000, outState:49000, intl:49000 },
+        "Fordham University": { sat:1340, gpa:3.7, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+        "Loyola University Chicago": { sat:1240, gpa:3.7, policy:"Test-Optional", inState:48000, outState:48000, intl:48000 },
+        "University of Dayton": { sat:1230, gpa:3.6, policy:"Test-Optional", inState:46000, outState:46000, intl:46000 },
+        "University of Vermont": { sat:1260, gpa:3.6, policy:"Test-Optional", inState:19000, outState:44000, intl:44000 },
+        "Howard University": { sat:1200, gpa:3.6, policy:"Test-Optional", inState:30000, outState:30000, intl:30000 },
+        "Spelman College": { sat:1140, gpa:3.7, policy:"Test-Optional", inState:30000, outState:30000, intl:30000 },
+        "Morehouse College": { sat:1110, gpa:3.5, policy:"Test-Optional", inState:29000, outState:29000, intl:29000 },
+        "San Diego State University": { sat:1220, gpa:3.7, policy:"Test-Optional", inState:8000, outState:20000, intl:20000 },
+        "Cal Poly San Luis Obispo": { sat:1340, gpa:4.0, policy:"Test-Blind*", inState:10000, outState:28000, intl:28000 },
+        "James Madison University": { sat:1190, gpa:3.7, policy:"Test-Optional", inState:13000, outState:30000, intl:30000 },
+        "University of Delaware": { sat:1210, gpa:3.7, policy:"Test-Optional", inState:15000, outState:36000, intl:36000 }
+    };
 
-    const DB_ALIASES = { /* ... same aliases ... */ };
+    const DB_ALIASES = {
+        "mit": "Massachusetts Institute of Technology",
+        "uiuc": "University of Illinois Urbana-Champaign",
+        "uc san diego": "University of California, San Diego",
+        "ucsd": "University of California, San Diego",
+        "ucla": "University of California, Los Angeles",
+        "uc berkeley": "University of California, Berkeley",
+        "cal": "University of California, Berkeley",
+        "uc irvine": "University of California, Irvine",
+        "uci": "University of California, Irvine",
+        "uc davis": "University of California, Davis",
+        "uc santa barbara": "University of California, Santa Barbara",
+        "ucsb": "University of California, Santa Barbara",
+        "gatech": "Georgia Institute of Technology",
+        "georgia tech": "Georgia Institute of Technology",
+        "carnegie mellon": "Carnegie Mellon University",
+        "cmu": "Carnegie Mellon University",
+        "johns hopkins": "Johns Hopkins University",
+        "jhu": "Johns Hopkins University",
+        "wustl": "Washington University in St. Louis",
+        "wash u": "Washington University in St. Louis",
+        "uva": "University of Virginia",
+        "umich": "University of Michigan",
+        "unc": "University of North Carolina Chapel Hill",
+        "ut austin": "University of Texas at Austin",
+        "texas a&m": "Texas A&M University",
+        "tamu": "Texas A&M University",
+        "purdue": "Purdue University",
+        "ohio state": "Ohio State University",
+        "osu": "Ohio State University",
+        "penn state": "Penn State University",
+        "psu": "Penn State University",
+        "pitt": "University of Pittsburgh",
+        "rutgers": "Rutgers University",
+        "umd": "University of Maryland College Park",
+        "uconn": "University of Connecticut",
+        "umass amherst": "University of Massachusetts Amherst",
+        "umass": "University of Massachusetts Amherst",
+        "usf": "University of South Florida",
+        "ucf": "University of Central Florida",
+        "fsu": "Florida State University",
+        "bama": "University of Alabama",
+        "auburn": "Auburn University",
+        "utk": "University of Tennessee",
+        "usc": "University of Southern California",
+        "u of sc": "University of South Carolina",
+        "uk": "University of Kentucky",
+        "ku": "University of Kansas",
+        "ou": "University of Oklahoma",
+        "unl": "University of Nebraska Lincoln",
+        "uiowa": "University of Iowa",
+        "mizzou": "University of Missouri",
+        "arkansas": "University of Arkansas",
+        "lsu": "Louisiana State University",
+        "msu": "Michigan State University",
+        "mississippi state": "Mississippi State University",
+        "ole miss": "Ole Miss",
+        "ttu": "Texas Tech University",
+        "uh": "University of Houston",
+        "ut dallas": "University of Texas at Dallas",
+        "unt": "University of North Texas",
+        "asu": "Arizona State University",
+        "ua": "University of Arizona",
+        "utah": "University of Utah",
+        "cu boulder": "University of Colorado Boulder",
+        "osu oregon": "Oregon State University",
+        "oregon": "University of Oregon",
+        "wsu": "Washington State University",
+        "indiana": "Indiana University Bloomington",
+        "iub": "Indiana University Bloomington",
+        "uic": "University of Illinois Chicago",
+        "isu": "Iowa State University",
+        "ksu": "Kansas State University",
+        "okstate": "Oklahoma State University",
+        "missouri s&t": "Missouri S&T",
+        "umn": "University of Minnesota Twin Cities",
+        "minnesota": "University of Minnesota Twin Cities",
+        "fisk": "Fisk University",
+        "clark": "Clark University",
+        "american": "American University",
+        "baylor": "Baylor University",
+        "byu": "Brigham Young University",
+        "drexel": "Drexel University",
+        "lmu": "Loyola Marymount University",
+        "marquette": "Marquette University",
+        "rit": "Rochester Institute of Technology",
+        "stevens": "Stevens Institute of Technology",
+        "syr": "Syracuse University",
+        "tcu": "Texas Christian University",
+        "du": "University of Denver",
+        "usd": "University of San Diego",
+        "wpi": "Worcester Polytechnic Institute",
+        "yu": "Yeshiva University",
+        "fordham": "Fordham University",
+        "loyola chicago": "Loyola University Chicago",
+        "dayton": "University of Dayton",
+        "uvm": "University of Vermont",
+        "howard": "Howard University",
+        "spelman": "Spelman College",
+        "morehouse": "Morehouse College",
+        "sdsu": "San Diego State University",
+        "cal poly slo": "Cal Poly San Luis Obispo",
+        "jmu": "James Madison University",
+        "udel": "University of Delaware"
+    };
 
     function normalizeName(name) { return name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim(); }
     function findCollegeInDB(inputName) {
@@ -331,9 +592,10 @@
 
     // ---------- STATE ----------
     let currentSession = 'fall2027';
+    let satDate = null;
     let checked = {};
     let colleges = { reach:[], match:[], safety:[] };
-    let openPhases = new Set([0]); // first phase open by default
+    let openPhases = new Set([0]);
     let activeMapFilter = 'all';
     let map, markersLayer;
     let geocodeCache = {};
@@ -344,10 +606,11 @@
     const tabBtns = $$('.tab-btn');
     const panelRoadmap = $('#panel-roadmap'), panelMap = $('#panel-map'), panelSuggestions = $('#panel-suggestions');
     const sessionSelect = $('#session-select');
+    const satDateInput = $('#sat-date-input');
+    const satPill = $('#sat-pill');
     const saveStatusEl = $('#save-status');
     const progFill = $('#prog-fill'), progLabel = $('#prog-label'), progPct = $('#prog-pct');
     const phasesContainer = $('#phases-container');
-    const satPill = $('#sat-pill');
     const listReach = $('#list-reach'), listMatch = $('#list-match'), listSafety = $('#list-safety');
     const inpReach = $('#inp-reach'), inpMatch = $('#inp-match'), inpSafety = $('#inp-safety');
     const btnReach = $('#btn-reach'), btnMatch = $('#btn-match'), btnSafety = $('#btn-safety');
@@ -367,6 +630,24 @@
     const safetyListEl = $('#safety-suggestions .suggestion-list');
 
     function getLSKey() { return `college_roadmap_${currentSession}`; }
+
+    function saveSATDate() {
+        try { localStorage.setItem('college_roadmap_satDate', satDate || ''); } catch(e) {}
+    }
+
+    function loadSATDate() {
+        const saved = localStorage.getItem('college_roadmap_satDate');
+        if (saved) {
+            satDate = saved;
+            satDateInput.value = saved;
+        } else {
+            // default to Sept 12 of year before entry
+            const entryYear = currentSession.startsWith('fall') ? parseInt(currentSession.replace('fall','')) : parseInt(currentSession.replace('spring',''));
+            satDate = `${entryYear - 1}-09-12`;
+            satDateInput.value = satDate;
+            saveSATDate();
+        }
+    }
 
     function saveState() {
         try {
@@ -397,7 +678,7 @@
         return false;
     }
 
-    function totalTasks() { return getPhasesForSession(currentSession).reduce((s,p) => s + p.tasks.length, 0); }
+    function totalTasks() { return getPhasesForDate(satDate).reduce((s,p) => s + p.tasks.length, 0); }
     function totalDone() { return Object.values(checked).filter(Boolean).length; }
 
     function updateProgress() {
@@ -409,13 +690,13 @@
     }
 
     function renderPhases() {
-        const phases = getPhasesForSession(currentSession);
+        const phases = getPhasesForDate(satDate);
         phasesContainer.innerHTML = '';
         phases.forEach((phase, pi) => {
             const done = phase.tasks.filter((_,ti) => checked[pi+'-'+ti]).length;
             const isOpen = openPhases.has(pi);
             const wrap = document.createElement('div');
-            wrap.className = 'phase' + (pi === 0 ? ' is-current' : ''); // first phase always highlighted
+            wrap.className = 'phase' + (pi === 0 ? ' is-current' : '');
             wrap.innerHTML = `<div class="phase-head"><div class="dot" style="background:${phase.color}"></div><div class="phase-meta"><div class="phase-name">${phase.title}</div><div class="phase-date">${phase.date}</div></div><span class="phase-ct">${done}/${phase.tasks.length}</span><span class="chev ${isOpen?'open':''}">▼</span></div><div class="phase-body ${isOpen?'open':''}"></div>`;
             const head = wrap.querySelector('.phase-head');
             head.addEventListener('click', () => togglePhase(pi));
@@ -436,27 +717,19 @@
     function togglePhase(pi) { if (openPhases.has(pi)) openPhases.delete(pi); else openPhases.add(pi); saveState(); renderPhases(); }
 
     function updateSATBadge() {
-        let entryYear, term;
-        if (currentSession.startsWith('fall')) {
-            term = 'fall';
-            entryYear = parseInt(currentSession.replace('fall',''));
-        } else {
-            term = 'spring';
-            entryYear = parseInt(currentSession.replace('spring',''));
-        }
-        const satYear = entryYear - 1;
-        const dateStr = `Sep 12, ${satYear}`;
+        if (!satDate) { satPill.textContent = 'SAT: not set'; return; }
         const today = new Date();
-        const satDate = new Date(`${satYear}-09-12`);
-        const diffDays = Math.ceil((satDate - today) / 86400000);
+        const sat = new Date(satDate + 'T00:00:00');
+        const diffDays = Math.ceil((sat - today) / 86400000);
+        const formatted = sat.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
         if (diffDays > 0) {
-            satPill.textContent = `SAT: ${dateStr} · ${diffDays} days away`;
+            satPill.textContent = `SAT: ${formatted} · ${diffDays} days away`;
             satPill.classList.remove('done');
         } else if (diffDays === 0) {
             satPill.textContent = 'SAT is TODAY — good luck!';
             satPill.classList.add('done');
         } else {
-            satPill.textContent = `SAT: ${dateStr} · completed`;
+            satPill.textContent = `SAT: ${formatted} · completed`;
             satPill.classList.add('done');
         }
     }
@@ -611,10 +884,19 @@
         }));
     }
 
+    satDateInput.addEventListener('change', function() {
+        satDate = this.value;
+        saveSATDate();
+        renderPhases();
+        updateProgress();
+        updateSATBadge();
+    });
+
     sessionSelect.addEventListener('change', function() {
-        saveState(); // save current before switching
+        saveState();
         currentSession = this.value;
-        loadState(); // load (or empty) for new session
+        loadState();
+        loadSATDate(); // refresh to default if no custom date
         renderPhases();
         updateProgress();
         renderCollegeTags();
@@ -625,7 +907,7 @@
 
     btnClearAll.addEventListener('click', clearAllColleges);
 
-    // ---------- SUGGESTIONS (unchanged) ----------
+    // ---------- SUGGESTIONS ----------
     function getAppropriateTuition(collegeData, residency) {
         if (residency === 'inState') return collegeData.inState;
         if (residency === 'outOfState') return collegeData.outState;
@@ -721,8 +1003,9 @@
     });
 
     function boot() {
-        loadState(); // will set empty if no data
-        // No preload of colleges – start empty
+        loadState();
+        loadSATDate();
+        // Always start fresh – no preloaded colleges
         setupTabs();
         setupFilters();
         renderPhases();
@@ -734,10 +1017,9 @@
         btnReach.addEventListener('click', ()=>addCollege('reach'));
         btnMatch.addEventListener('click', ()=>addCollege('match'));
         btnSafety.addEventListener('click', ()=>addCollege('safety'));
-        inpReach.addEventListener('keydown', e=>{if(e.key==='Enter')addCollege('reach')});
-        inpMatch.addEventListener('keydown', e=>{if(e.key==='Enter')addCollege('match')});
-        inpSafety.addEventListener('keydown', e=>{if(e.key==='Enter')addCollege('safety')});
-        btnClearAll.addEventListener('click', clearAllColleges);
+        inpReach.addEventListener('keydown', e=>{if(e.key==='Enter') addCollege('reach')});
+        inpMatch.addEventListener('keydown', e=>{if(e.key==='Enter') addCollege('match')});
+        inpSafety.addEventListener('keydown', e=>{if(e.key==='Enter') addCollege('safety')});
     }
     boot();
 })();
