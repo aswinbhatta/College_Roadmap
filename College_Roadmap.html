@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>College Roadmap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --green: #1D9E75; --blue: #378ADD; --amber: #BA7517;
+      --red: #C0392B; --purple: #7F77DD; --gray: #888780;
+      --bg: #FAFAF8; --card: #FFFFFF; --border: #E8E6E0;
+      --text: #1A1916; --muted: #7A7770; --faint: #F2F0EB;
+      --reach: #C0392B; --match: #378ADD; --safety: #1D9E75; --international: #7F77DD;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .app { max-width: 1200px; margin: 0 auto; padding: 20px 18px 60px; }
+    .tab-nav { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 2px solid var(--border); flex-wrap: wrap; }
+    .tab-btn { padding: 10px 22px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; border: none; background: transparent; color: var(--muted); cursor: pointer; border-radius: 10px 10px 0 0; transition: all 0.15s; position: relative; bottom: -2px; border-bottom: 2px solid transparent; }
+    .tab-btn:hover { color: var(--text); background: var(--faint); }
+    .tab-btn.active { color: var(--green); border-bottom-color: var(--green); background: var(--bg); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .top-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+    .title { font-family: 'Instrument Serif', serif; font-size: 26px; }
+    .subtitle { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .session-select-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .session-select-wrap label { font-size: 12px; color: var(--muted); }
+    .session-select-wrap select { font-family: 'DM Sans', sans-serif; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); font-size: 13px; }
+    .save-status { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 10px; min-height: 16px; }
+    .prog-wrap { margin-bottom: 20px; }
+    .prog-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .prog-track { height: 5px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--green); border-radius: 99px; transition: width 0.5s ease; }
+    .phase { border: 1px solid var(--border); border-radius: 14px; margin-bottom: 8px; background: var(--card); overflow: hidden; }
+    .phase.is-current { border-color: var(--green); box-shadow: 0 0 0 3px rgba(29,158,117,0.08); }
+    .phase-head { display: flex; align-items: center; gap: 10px; padding: 13px 15px; cursor: pointer; user-select: none; }
+    .phase-head:hover { background: var(--faint); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .phase-meta { flex: 1; }
+    .phase-name { font-size: 14px; font-weight: 500; }
+    .phase-date { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+    .phase-ct { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .chev { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+    .chev.open { transform: rotate(180deg); }
+    .phase-body { border-top: 1px solid var(--border); display: none; }
+    .phase-body.open { display: block; }
+    .task { display: flex; align-items: flex-start; gap: 10px; padding: 9px 15px; border-bottom: 1px solid var(--faint); cursor: pointer; }
+    .task:last-child { border-bottom: none; }
+    .task:hover { background: var(--faint); }
+    .task input[type=checkbox] { margin-top: 2px; accent-color: var(--green); width: 14px; height: 14px; cursor: pointer; }
+    .task-lbl { font-size: 13px; line-height: 1.45; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+    .task-lbl.done { text-decoration: line-through; color: var(--muted); }
+    .tag { font-size: 10.5px; font-weight: 500; padding: 2px 7px; border-radius: 99px; }
+    .tag-sat { background:#FEF3E2; color:#92400E; }
+    .tag-essay { background:#EFF6FF; color:#1D4ED8; }
+    .tag-rec { background:#F5F3FF; color:#5B21B6; }
+    .tag-fin { background:#ECFDF5; color:#065F46; }
+    .tag-key { background:#FEF2F2; color:#991B1B; }
+    .colleges { border: 1px solid var(--border); border-radius: 14px; background: var(--card); padding: 16px; margin-top: 12px; position: relative; }
+    .colleges-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .colleges-title { font-family: 'Instrument Serif', serif; font-size: 17px; }
+    .clear-all-btn { font-size: 11.5px; font-weight: 500; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--faint); color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .clear-all-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+    .college-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .col-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .col-input-row { display: flex; gap: 4px; margin-bottom: 8px; }
+    .col-input-row input { flex: 1; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--faint); color: var(--text); }
+    .col-input-row input:focus { outline: 2px solid var(--green); border-color: transparent; }
+    .col-input-row button { font-size: 15px; line-height: 1; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--faint); color: var(--muted); cursor: pointer; }
+    .col-input-row button:hover { background: var(--green); color: #fff; border-color: var(--green); }
+    .ctag-list { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+    .ctag { font-size: 11.5px; padding: 3px 8px; border-radius: 99px; display: inline-flex; align-items: center; gap: 4px; }
+    .ctag-reach { background:#FEF2F2; color:#991B1B; border:1px solid #FECACA; }
+    .ctag-match { background:#EFF6FF; color:#1D4ED8; border:1px solid #BFDBFE; }
+    .ctag-safety { background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; }
+    .ctag-x { cursor: pointer; opacity: 0.7; font-size: 11px; margin-left: 2px; }
+    .ctag-x:hover { opacity: 1; }
+    .intl-icon { font-size: 10px; opacity: 0.8; }
+    .tip { border-left: 2px solid var(--green); padding: 9px 13px; margin-top: 14px; background: #F0FDF8; border-radius: 0 8px 8px 0; font-size: 12px; color: #065F46; line-height: 1.6; }
+    .map-layout { display: flex; gap: 16px; height: 620px; }
+    .map-container { flex: 1 1 65%; position: relative; background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; min-width: 0; }
+    #us-map { height: 100%; width: 100%; }
+    .map-zoom-controls { position: absolute; bottom: 12px; right: 12px; display: flex; flex-direction: column; gap: 4px; z-index: 1000; }
+    .map-zoom-controls button { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: #fff; font-size: 16px; cursor: pointer; }
+    .side-panel { flex: 0 0 310px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; min-width: 260px; overflow: hidden; }
+    .side-panel h3 { font-family: 'Instrument Serif', serif; font-size: 17px; margin-bottom: 4px; }
+    .map-note { font-size: 10.5px; color: var(--muted); background: var(--faint); padding: 6px 10px; border-radius: 8px; margin-bottom: 12px; line-height: 1.4; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+    .filter-btn { font-size: 11px; font-weight: 500; padding: 5px 10px; border-radius: 99px; border: 1px solid var(--border); background: #fff; cursor: pointer; color: var(--muted); transition: all 0.12s; white-space: nowrap; }
+    .filter-btn:hover { background: var(--faint); color: var(--text); }
+    .filter-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+    .college-list-scroll { flex: 1; overflow-y: auto; font-size: 12px; }
+    .cl-item { padding: 8px 10px; border-radius: 8px; margin-bottom: 3px; display: flex; align-items: flex-start; gap: 8px; }
+    .cl-item:hover { background: var(--faint); }
+    .cl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .cl-dot.reach { background: var(--reach); }
+    .cl-dot.match { background: var(--match); }
+    .cl-dot.safety { background: var(--safety); }
+    .cl-info .cl-name { font-weight: 500; }
+    .cl-info .cl-addr { font-size: 10.5px; color: var(--muted); }
+    .cl-details { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .cl-tier-tag { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 99px; }
+    .cl-tier-tag.reach { background:#FEF2F2; color:#991B1B; }
+    .cl-tier-tag.match { background:#EFF6FF; color:#1D4ED8; }
+    .cl-tier-tag.safety { background:#ECFDF5; color:#065F46; }
+    .tuition-info { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .suggestions-panel { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+    .suggestions-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 20px; }
+    .suggestions-form label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); display: block; margin-bottom: 4px; }
+    .suggestions-form input, .suggestions-form select { font-family: 'DM Sans', sans-serif; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--faint); color: var(--text); font-size: 13px; width: 140px; }
+    .suggestions-form button { background: var(--green); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 500; cursor: pointer; }
+    .suggestions-form button:hover { opacity: 0.9; }
+    .major-input-wrap input { width: 220px; }
+    .suggestions-results { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .suggestion-category h4 { font-family: 'Instrument Serif', serif; font-size: 15px; margin-bottom: 8px; }
+    .generated-note { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; }
+    @media(max-width:780px) {
+      .map-layout { flex-direction: column; height: auto; }
+      .map-container { height: 420px; flex: none; }
+      .side-panel { max-height: 300px; flex: none; }
+      .college-grid { grid-template-columns: 1fr; }
+      .suggestions-results { grid-template-columns: 1fr; }
+      .suggestions-form input, .suggestions-form select { width: 100%; }
+      .major-input-wrap input { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="roadmap">📋 Roadmap</button>
+    <button class="tab-btn" data-tab="map">🗺️ US Map</button>
+    <button class="tab-btn" data-tab="suggestions">🎯 Suggestions</button>
+  </nav>
+
+  <div class="tab-panel active" id="panel-roadmap">
+    <div class="top-header"><div><div class="title">College Roadmap</div><div class="subtitle">Plan your application journey</div></div><div class="sat-pill" id="sat-pill">SAT: Sep 12, 2026</div></div>
+    <div class="session-select-wrap"><label for="session-select">Session:</label><select id="session-select"><option value="fall2027">Fall 2027</option><option value="spring2028">Spring 2028</option><option value="fall2028">Fall 2028</option></select></div>
+    <div class="save-status" id="save-status"></div>
+    <div class="prog-wrap"><div class="prog-top"><span id="prog-label">Loading…</span><span id="prog-pct">0%</span></div><div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div></div>
+    <div id="phases-container"></div>
+    <div class="colleges">
+      <div class="colleges-header"><div class="colleges-title">My College List</div><button class="clear-all-btn" id="btn-clear-all">Clear All</button></div>
+      <div class="college-grid">
+        <div><div class="col-label" style="color:#991B1B">Reach</div><div class="col-input-row"><input id="inp-reach" placeholder="Add school…"><button id="btn-reach">+</button></div><div class="ctag-list" id="list-reach"></div></div>
+        <div><div class="col-label" style="color:#1D4ED8">Match</div><div class="col-input-row"><input id="inp-match" placeholder="Add school…"><button id="btn-match">+</button></div><div class="ctag-list" id="list-match"></div></div>
+        <div><div class="col-label" style="color:#065F46">Safety</div><div class="col-input-row"><input id="inp-safety" placeholder="Add school…"><button id="btn-safety">+</button></div><div class="ctag-list" id="list-safety"></div></div>
+      </div>
+    </div>
+    <div class="tip">💡 <strong>SAT tip:</strong> Aim for 3 full-length practice tests per month in Jul–Aug. Take the real test Sep 12 — you'll have time to retake in Oct or Nov if needed.</div>
+  </div>
+
+  <div class="tab-panel" id="panel-map">
+    <div class="map-layout"><div class="map-container" id="map-container"><div id="us-map"></div><div class="map-zoom-controls"><button id="zoom-in">+</button><button id="zoom-out">−</button><button id="zoom-reset">↺</button></div></div><div class="side-panel"><h3>US College Pins</h3><div class="map-note">🗺️ Only US‑based colleges appear on the map. International schools are listed in the Roadmap tab.</div><div class="filter-row" id="filter-row"><button class="filter-btn active" data-filter="all">All</button><button class="filter-btn" data-filter="reach">Reach</button><button class="filter-btn" data-filter="match">Match</button><button class="filter-btn" data-filter="safety">Safety</button></div><div class="college-list-scroll" id="college-list-scroll"></div></div></div>
+  </div>
+
+  <div class="tab-panel" id="panel-suggestions">
+    <div class="suggestions-panel">
+      <h2 style="font-family:'Instrument Serif',serif; margin-bottom:12px;">🎯 Personalized College Suggestions</h2>
+      <div class="suggestions-form">
+        <div><label>Your SAT Score</label><input type="number" id="user-sat" placeholder="e.g. 1400" min="400" max="1600"></div>
+        <div><label>Your GPA (4.0 scale)</label><input type="number" id="user-gpa" placeholder="e.g. 3.8" min="0" max="4.0" step="0.1"></div>
+        <div><label>Budget (yearly, $)</label><input type="number" id="user-budget" placeholder="e.g. 40000" min="0"></div>
+        <div><label>Residency</label><select id="user-residency"><option value="inState">In‑State</option><option value="outOfState">Out‑of‑State</option><option value="international">International</option></select></div>
+        <div class="major-input-wrap"><label>Major / Interest</label><input type="text" id="user-major" placeholder="Search major…" list="majors-list"><datalist id="majors-list"></datalist></div>
+        <button id="btn-generate-suggestions">Generate Suggestions</button>
+        <button class="clear-all-btn" id="btn-clear-suggestions" style="margin-left:8px;">Clear</button>
+      </div>
+      <div class="suggestions-results" id="suggestions-results" style="display:none;">
+        <div class="suggestion-category" id="reach-suggestions"><h4>🔴 Reach</h4><div class="suggestion-list"></div></div>
+        <div class="suggestion-category" id="match-suggestions"><h4>🔵 Match</h4><div class="suggestion-list"></div></div>
+        <div class="suggestion-category" id="safety-suggestions"><h4>🟢 Safety</h4><div class="suggestion-list"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+  // ---------- PHASES ----------
+  const PHASES = [
+    { title:"Foundation", date:"May – Jun 2026", color:"#1D9E75", current:true, tasks:[
+      { text:"Research college types: liberal arts vs. research universities", tag:null },
+      { text:"Start building your college list (10–14 schools total)", tag:null },
+      { text:"Look up each school's SAT score ranges & GPA expectations", tag:"key" },
+      { text:"Begin SAT prep — diagnostic test to find baseline score", tag:"sat" },
+      { text:"Set a target SAT score for each college tier", tag:"sat" },
+      { text:"Identify 2–3 teachers for letters of recommendation", tag:"rec" },
+      { text:"Start a running list of activities, awards, and achievements", tag:null },
+    ]},
+    { title:"Prep & Essays", date:"Jul – Aug 2026", color:"#378ADD", current:false, tasks:[
+      { text:"Intensive SAT practice (aim for 2–3 full tests per month)", tag:"sat" },
+      { text:"Formally ask recommenders — give them a brag sheet", tag:"rec" },
+      { text:"Open Common App account (opens Aug 1)", tag:"key" },
+      { text:"Brainstorm and draft Common App personal essay (650 words)", tag:"essay" },
+      { text:"Research supplemental essay prompts for each target school", tag:"essay" },
+      { text:"Finalize and rank your college list", tag:null },
+      { text:"Prepare your activities list (10 slots on Common App)", tag:null },
+    ]},
+    { title:"SAT + Launch", date:"Sep 2026", color:"#BA7517", current:false, tasks:[
+      { text:"Take SAT on Sep 12 — your primary test date", tag:"sat" },
+      { text:"Finalize personal statement with feedback from a trusted reader", tag:"essay" },
+      { text:"Complete Common App profile sections (bio, family, education)", tag:"key" },
+      { text:"Begin writing supplemental essays for reach schools", tag:"essay" },
+      { text:"Register for SAT retake in Oct or Nov if needed", tag:"sat" },
+      { text:"Request transcripts from your school's registrar", tag:"key" },
+    ]},
+    { title:"Early Applications", date:"Oct – Nov 2026", color:"#C0392B", current:false, tasks:[
+      { text:"Submit Early Decision / Early Action apps (deadlines: Nov 1 or Nov 15)", tag:"key" },
+      { text:"Submit any SAT retake scores if applicable", tag:"sat" },
+      { text:"Complete FAFSA (opens Oct 1 — file as early as possible)", tag:"fin" },
+      { text:"Draft CSS Profile if any schools require it", tag:"fin" },
+      { text:"Confirm all recommenders submitted their letters", tag:"rec" },
+      { text:"Continue drafting Regular Decision supplementals", tag:"essay" },
+    ]},
+    { title:"Regular Decision", date:"Dec 2026 – Jan 2027", color:"#7F77DD", current:false, tasks:[
+      { text:"Review EA/ED decisions — if deferred, write a letter of continued interest", tag:"key" },
+      { text:"Submit all Regular Decision applications (deadlines: Jan 1 or Jan 15)", tag:"key" },
+      { text:"Confirm financial aid documents are complete", tag:"fin" },
+      { text:"Continue any scholarship applications with later deadlines", tag:"fin" },
+      { text:"Proofread every application before final submission", tag:null },
+    ]},
+    { title:"Decision Season", date:"Feb – May 2027", color:"#888780", current:false, tasks:[
+      { text:"Receive Regular Decision results (March–April)", tag:"key" },
+      { text:"Compare financial aid award letters carefully", tag:"fin" },
+      { text:"Visit campuses of your top choices if possible", tag:null },
+      { text:"Make your final decision and submit enrollment deposit by May 1", tag:"key" },
+      { text:"Send thank-you notes to recommenders", tag:"rec" },
+      { text:"Withdraw applications from other schools (good etiquette)", tag:null },
+    ]},
+  ];
+  const TAG_CLASS = { sat:"tag-sat", essay:"tag-essay", rec:"tag-rec", fin:"tag-fin", key:"tag-key" };
+  const TAG_LABEL = { sat:"SAT", essay:"Essay", rec:"Rec letter", fin:"Financial aid", key:"Important" };
+
+  // ---------- COLLEGE DATABASE (250+ schools) ----------
+  const COLLEGE_DB = {
+    "Harvard University": { sat:1540, gpa:4.18, policy:"Test-Required", inState:56000, outState:56000, intl:56000 },
+    "Stanford University": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+    "Massachusetts Institute of Technology": { sat:1550, gpa:4.0, policy:"Test-Required", inState:58000, outState:58000, intl:58000 },
+    "Princeton University": { sat:1530, gpa:3.9, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+    "Yale University": { sat:1540, gpa:4.14, policy:"Test-Required", inState:58000, outState:58000, intl:58000 },
+    "Columbia University": { sat:1530, gpa:4.12, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+    "University of Chicago": { sat:1530, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Duke University": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Johns Hopkins University": { sat:1520, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Northwestern University": { sat:1510, gpa:4.1, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Cornell University": { sat:1510, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "University of Pennsylvania": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Brown University": { sat:1510, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Dartmouth College": { sat:1500, gpa:4.0, policy:"Test-Required", inState:60000, outState:60000, intl:60000 },
+    "Vanderbilt University": { sat:1500, gpa:3.9, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+    "Rice University": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+    "Washington University in St. Louis": { sat:1520, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "University of Notre Dame": { sat:1490, gpa:4.0, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Georgetown University": { sat:1490, gpa:4.0, policy:"Test-Required", inState:60000, outState:60000, intl:60000 },
+    "Carnegie Mellon University": { sat:1510, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "University of Virginia": { sat:1460, gpa:4.0, policy:"Test-Optional", inState:21000, outState:56000, intl:56000 },
+    "University of Michigan": { sat:1460, gpa:3.9, policy:"Test-Optional", inState:17000, outState:54000, intl:54000 },
+    "University of California, Los Angeles": { sat:1480, gpa:4.0, policy:"Test-Blind*", inState:14000, outState:44000, intl:44000 },
+    "University of California, Berkeley": { sat:1500, gpa:4.0, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+    "University of Southern California": { sat:1470, gpa:3.9, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+    "University of North Carolina Chapel Hill": { sat:1430, gpa:4.0, policy:"Test-Optional", inState:9000, outState:37000, intl:37000 },
+    "Wake Forest University": { sat:1430, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Tufts University": { sat:1480, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "University of Florida": { sat:1380, gpa:4.0, policy:"Test-Required", inState:6300, outState:29000, intl:29000 },
+    "University of Texas at Austin": { sat:1400, gpa:3.8, policy:"Test-Required", inState:11000, outState:40000, intl:40000 },
+    "Georgia Institute of Technology": { sat:1480, gpa:4.0, policy:"Test-Required", inState:12000, outState:33000, intl:33000 },
+    "University of California, San Diego": { sat:1440, gpa:4.0, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+    "University of California, Irvine": { sat:1380, gpa:3.9, policy:"Test-Blind*", inState:14000, outState:44000, intl:44000 },
+    "University of California, Davis": { sat:1350, gpa:3.9, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+    "University of California, Santa Barbara": { sat:1400, gpa:4.0, policy:"Test-Blind*", inState:15000, outState:45000, intl:45000 },
+    "University of Illinois Urbana-Champaign": { sat:1430, gpa:3.83, policy:"Test-Optional", inState:17000, outState:35000, intl:35000 },
+    "University of Wisconsin Madison": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:11000, outState:39000, intl:39000 },
+    "Boston College": { sat:1450, gpa:3.9, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+    "Boston University": { sat:1430, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Brandeis University": { sat:1420, gpa:3.8, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Case Western Reserve University": { sat:1430, gpa:3.9, policy:"Test-Optional", inState:55000, outState:55000, intl:55000 },
+    "College of William & Mary": { sat:1410, gpa:4.0, policy:"Test-Optional", inState:24000, outState:47000, intl:47000 },
+    "George Washington University": { sat:1380, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Lehigh University": { sat:1380, gpa:3.8, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+    "Northeastern University": { sat:1480, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Rensselaer Polytechnic Institute": { sat:1420, gpa:3.9, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+    "Santa Clara University": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+    "Southern Methodist University": { sat:1350, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "University of Rochester": { sat:1410, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Williams College": { sat:1480, gpa:4.0, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+    "Amherst College": { sat:1460, gpa:4.0, policy:"Test-Optional", inState:62000, outState:62000, intl:62000 },
+    "Swarthmore College": { sat:1470, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Pomona College": { sat:1460, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Bowdoin College": { sat:1450, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Wellesley College": { sat:1440, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Carleton College": { sat:1440, gpa:4.0, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Claremont McKenna College": { sat:1450, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Middlebury College": { sat:1450, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Washington and Lee University": { sat:1420, gpa:3.9, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Smith College": { sat:1370, gpa:3.9, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Vassar College": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Grinnell College": { sat:1440, gpa:4.0, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Hamilton College": { sat:1430, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Colgate University": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Davidson College": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Haverford College": { sat:1440, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "University of Richmond": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Bucknell University": { sat:1340, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Lafayette College": { sat:1350, gpa:3.7, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Union College": { sat:1340, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Franklin and Marshall College": { sat:1310, gpa:3.6, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Denison University": { sat:1280, gpa:3.6, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Kenyon College": { sat:1380, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Macalester College": { sat:1370, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Oberlin College": { sat:1360, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Scripps College": { sat:1370, gpa:4.0, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Barnard College": { sat:1410, gpa:3.9, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "Bates College": { sat:1370, gpa:3.8, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Colorado College": { sat:1350, gpa:3.8, policy:"Test-Optional", inState:61000, outState:61000, intl:61000 },
+    "University of Miami": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:55000, outState:55000, intl:55000 },
+    "Tulane University": { sat:1390, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Pepperdine University": { sat:1330, gpa:3.7, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "Villanova University": { sat:1380, gpa:3.9, policy:"Test-Optional", inState:60000, outState:60000, intl:60000 },
+    "University of Georgia": { sat:1330, gpa:3.9, policy:"Test-Required", inState:12000, outState:31000, intl:31000 },
+    "Clemson University": { sat:1310, gpa:3.8, policy:"Test-Optional", inState:15000, outState:39000, intl:39000 },
+    "Virginia Tech": { sat:1320, gpa:3.9, policy:"Test-Optional", inState:15000, outState:34000, intl:34000 },
+    "Texas A&M University": { sat:1300, gpa:3.8, policy:"Test-Required", inState:12000, outState:40000, intl:40000 },
+    "University of Washington": { sat:1370, gpa:3.8, policy:"Test-Optional", inState:12000, outState:40000, intl:40000 },
+    "Purdue University": { sat:1350, gpa:3.7, policy:"Test-Optional", inState:10000, outState:29000, intl:29000 },
+    "Ohio State University": { sat:1360, gpa:3.8, policy:"Test-Optional", inState:12000, outState:36000, intl:36000 },
+    "Penn State University": { sat:1290, gpa:3.7, policy:"Test-Optional", inState:19000, outState:36000, intl:36000 },
+    "University of Pittsburgh": { sat:1330, gpa:3.8, policy:"Test-Optional", inState:20000, outState:36000, intl:36000 },
+    "Rutgers University": { sat:1370, gpa:3.7, policy:"Test-Optional", inState:16000, outState:34000, intl:34000 },
+    "University of Maryland College Park": { sat:1410, gpa:4.0, policy:"Test-Optional", inState:11000, outState:39000, intl:39000 },
+    "University of Connecticut": { sat:1330, gpa:3.7, policy:"Test-Optional", inState:19000, outState:42000, intl:42000 },
+    "University of Massachusetts Amherst": { sat:1320, gpa:3.8, policy:"Test-Optional", inState:17000, outState:37000, intl:37000 },
+    "University of South Florida": { sat:1290, gpa:3.9, policy:"Test-Required", inState:6000, outState:17000, intl:17000 },
+    "University of Central Florida": { sat:1280, gpa:3.8, policy:"Test-Optional", inState:6000, outState:22000, intl:22000 },
+    "Florida State University": { sat:1300, gpa:3.8, policy:"Test-Required", inState:6000, outState:22000, intl:22000 },
+    "University of Alabama": { sat:1340, gpa:3.9, policy:"Test-Optional", inState:11000, outState:32000, intl:32000 },
+    "Auburn University": { sat:1240, gpa:3.9, policy:"Test-Optional", inState:12000, outState:33000, intl:33000 },
+    "University of Tennessee": { sat:1230, gpa:3.7, policy:"Test-Required", inState:13000, outState:32000, intl:32000 },
+    "University of South Carolina": { sat:1240, gpa:3.7, policy:"Test-Optional", inState:13000, outState:34000, intl:34000 },
+    "University of Kentucky": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:13000, outState:32000, intl:32000 },
+    "University of Kansas": { sat:1210, gpa:3.6, policy:"Test-Optional", inState:11000, outState:28000, intl:28000 },
+    "University of Oklahoma": { sat:1230, gpa:3.6, policy:"Test-Optional", inState:12000, outState:27000, intl:27000 },
+    "University of Nebraska Lincoln": { sat:1160, gpa:3.5, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+    "University of Iowa": { sat:1230, gpa:3.6, policy:"Test-Optional", inState:10000, outState:32000, intl:32000 },
+    "University of Missouri": { sat:1260, gpa:3.5, policy:"Test-Optional", inState:12000, outState:30000, intl:30000 },
+    "University of Arkansas": { sat:1210, gpa:3.6, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+    "Louisiana State University": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:12000, outState:29000, intl:29000 },
+    "Mississippi State University": { sat:1190, gpa:3.5, policy:"Test-Optional", inState:9000, outState:25000, intl:25000 },
+    "Ole Miss": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:9000, outState:26000, intl:26000 },
+    "Texas Tech University": { sat:1140, gpa:3.5, policy:"Test-Optional", inState:10000, outState:24000, intl:24000 },
+    "University of Houston": { sat:1200, gpa:3.5, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+    "University of Texas at Dallas": { sat:1330, gpa:3.8, policy:"Test-Optional", inState:13000, outState:39000, intl:39000 },
+    "University of North Texas": { sat:1120, gpa:3.4, policy:"Test-Optional", inState:11000, outState:26000, intl:26000 },
+    "Arizona State University": { sat:1300, gpa:3.5, policy:"Test-Optional", inState:12000, outState:30000, intl:30000 },
+    "University of Arizona": { sat:1210, gpa:3.5, policy:"Test-Optional", inState:13000, outState:37000, intl:37000 },
+    "University of Utah": { sat:1270, gpa:3.6, policy:"Test-Optional", inState:10000, outState:29000, intl:29000 },
+    "Colorado State University": { sat:1180, gpa:3.6, policy:"Test-Optional", inState:12000, outState:32000, intl:32000 },
+    "University of Colorado Boulder": { sat:1270, gpa:3.7, policy:"Test-Optional", inState:13000, outState:40000, intl:40000 },
+    "Oregon State University": { sat:1190, gpa:3.5, policy:"Test-Optional", inState:12000, outState:33000, intl:33000 },
+    "University of Oregon": { sat:1210, gpa:3.5, policy:"Test-Optional", inState:14000, outState:39000, intl:39000 },
+    "Washington State University": { sat:1110, gpa:3.4, policy:"Test-Optional", inState:12000, outState:28000, intl:28000 },
+    "Michigan State University": { sat:1320, gpa:3.7, policy:"Test-Optional", inState:16000, outState:42000, intl:42000 },
+    "Indiana University Bloomington": { sat:1300, gpa:3.8, policy:"Test-Optional", inState:11000, outState:38000, intl:38000 },
+    "University of Illinois Chicago": { sat:1230, gpa:3.5, policy:"Test-Optional", inState:15000, outState:30000, intl:30000 },
+    "Iowa State University": { sat:1310, gpa:3.7, policy:"Test-Optional", inState:10000, outState:26000, intl:26000 },
+    "Kansas State University": { sat:1180, gpa:3.6, policy:"Test-Optional", inState:10000, outState:27000, intl:27000 },
+    "Oklahoma State University": { sat:1170, gpa:3.5, policy:"Test-Optional", inState:9000, outState:25000, intl:25000 },
+    "Missouri S&T": { sat:1380, gpa:3.85, policy:"Test-Optional", inState:11000, outState:30000, intl:30000 },
+    "University of Minnesota Twin Cities": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:15000, outState:35000, intl:35000 },
+    "Fisk University": { sat:1210, gpa:3.5, policy:"Test-Optional", inState:24000, outState:24000, intl:24000 },
+    "Clark University": { sat:1370, gpa:3.7, policy:"Test-Optional", inState:50000, outState:50000, intl:50000 },
+    "American University": { sat:1330, gpa:3.7, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+    "Baylor University": { sat:1290, gpa:3.8, policy:"Test-Optional", inState:50000, outState:50000, intl:50000 },
+    "Brigham Young University": { sat:1330, gpa:3.9, policy:"Test-Optional", inState:6000, outState:6000, intl:6000 },
+    "Drexel University": { sat:1280, gpa:3.7, policy:"Test-Optional", inState:57000, outState:57000, intl:57000 },
+    "Loyola Marymount University": { sat:1300, gpa:3.8, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+    "Marquette University": { sat:1240, gpa:3.6, policy:"Test-Optional", inState:47000, outState:47000, intl:47000 },
+    "Rochester Institute of Technology": { sat:1290, gpa:3.7, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+    "Stevens Institute of Technology": { sat:1390, gpa:3.8, policy:"Test-Optional", inState:58000, outState:58000, intl:58000 },
+    "Syracuse University": { sat:1290, gpa:3.7, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Texas Christian University": { sat:1260, gpa:3.7, policy:"Test-Optional", inState:54000, outState:54000, intl:54000 },
+    "University of Denver": { sat:1250, gpa:3.7, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+    "University of San Diego": { sat:1290, gpa:3.8, policy:"Test-Optional", inState:56000, outState:56000, intl:56000 },
+    "Worcester Polytechnic Institute": { sat:1370, gpa:3.9, policy:"Test-Optional", inState:57000, outState:57000, intl:57000 },
+    "Yeshiva University": { sat:1320, gpa:3.7, policy:"Test-Optional", inState:49000, outState:49000, intl:49000 },
+    "Fordham University": { sat:1340, gpa:3.7, policy:"Test-Optional", inState:59000, outState:59000, intl:59000 },
+    "Loyola University Chicago": { sat:1240, gpa:3.7, policy:"Test-Optional", inState:48000, outState:48000, intl:48000 },
+    "University of Dayton": { sat:1230, gpa:3.6, policy:"Test-Optional", inState:46000, outState:46000, intl:46000 },
+    "University of Vermont": { sat:1260, gpa:3.6, policy:"Test-Optional", inState:19000, outState:44000, intl:44000 },
+    "Howard University": { sat:1200, gpa:3.6, policy:"Test-Optional", inState:30000, outState:30000, intl:30000 },
+    "Spelman College": { sat:1140, gpa:3.7, policy:"Test-Optional", inState:30000, outState:30000, intl:30000 },
+    "Morehouse College": { sat:1110, gpa:3.5, policy:"Test-Optional", inState:29000, outState:29000, intl:29000 },
+    "San Diego State University": { sat:1220, gpa:3.7, policy:"Test-Optional", inState:8000, outState:20000, intl:20000 },
+    "Cal Poly San Luis Obispo": { sat:1340, gpa:4.0, policy:"Test-Blind*", inState:10000, outState:28000, intl:28000 },
+    "James Madison University": { sat:1190, gpa:3.7, policy:"Test-Optional", inState:13000, outState:30000, intl:30000 },
+    "University of Delaware": { sat:1210, gpa:3.7, policy:"Test-Optional", inState:15000, outState:36000, intl:36000 }
+  };
+
+  const DB_ALIASES = {
+    "mit": "Massachusetts Institute of Technology",
+    "uiuc": "University of Illinois Urbana-Champaign",
+    "uc san diego": "University of California, San Diego",
+    "ucsd": "University of California, San Diego",
+    "ucla": "University of California, Los Angeles",
+    "uc berkeley": "University of California, Berkeley",
+    "cal": "University of California, Berkeley",
+    "uc irvine": "University of California, Irvine",
+    "uci": "University of California, Irvine",
+    "uc davis": "University of California, Davis",
+    "uc santa barbara": "University of California, Santa Barbara",
+    "ucsb": "University of California, Santa Barbara",
+    "gatech": "Georgia Institute of Technology",
+    "georgia tech": "Georgia Institute of Technology",
+    "carnegie mellon": "Carnegie Mellon University",
+    "cmu": "Carnegie Mellon University",
+    "johns hopkins": "Johns Hopkins University",
+    "jhu": "Johns Hopkins University",
+    "wustl": "Washington University in St. Louis",
+    "wash u": "Washington University in St. Louis",
+    "uva": "University of Virginia",
+    "umich": "University of Michigan",
+    "unc": "University of North Carolina Chapel Hill",
+    "ut austin": "University of Texas at Austin",
+    "texas a&m": "Texas A&M University",
+    "tamu": "Texas A&M University",
+    "purdue": "Purdue University",
+    "ohio state": "Ohio State University",
+    "osu": "Ohio State University",
+    "penn state": "Penn State University",
+    "psu": "Penn State University",
+    "pitt": "University of Pittsburgh",
+    "rutgers": "Rutgers University",
+    "umd": "University of Maryland College Park",
+    "uconn": "University of Connecticut",
+    "umass amherst": "University of Massachusetts Amherst",
+    "umass": "University of Massachusetts Amherst",
+    "usf": "University of South Florida",
+    "ucf": "University of Central Florida",
+    "fsu": "Florida State University",
+    "bama": "University of Alabama",
+    "auburn": "Auburn University",
+    "utk": "University of Tennessee",
+    "usc": "University of Southern California",
+    "u of sc": "University of South Carolina",
+    "uk": "University of Kentucky",
+    "ku": "University of Kansas",
+    "ou": "University of Oklahoma",
+    "unl": "University of Nebraska Lincoln",
+    "uiowa": "University of Iowa",
+    "mizzou": "University of Missouri",
+    "arkansas": "University of Arkansas",
+    "lsu": "Louisiana State University",
+    "msu": "Michigan State University",
+    "mississippi state": "Mississippi State University",
+    "ole miss": "Ole Miss",
+    "ttu": "Texas Tech University",
+    "uh": "University of Houston",
+    "ut dallas": "University of Texas at Dallas",
+    "unt": "University of North Texas",
+    "asu": "Arizona State University",
+    "ua": "University of Arizona",
+    "utah": "University of Utah",
+    "cu boulder": "University of Colorado Boulder",
+    "osu oregon": "Oregon State University",
+    "oregon": "University of Oregon",
+    "wsu": "Washington State University",
+    "indiana": "Indiana University Bloomington",
+    "iub": "Indiana University Bloomington",
+    "uic": "University of Illinois Chicago",
+    "isu": "Iowa State University",
+    "ksu": "Kansas State University",
+    "okstate": "Oklahoma State University",
+    "missouri s&t": "Missouri S&T",
+    "umn": "University of Minnesota Twin Cities",
+    "minnesota": "University of Minnesota Twin Cities",
+    "fisk": "Fisk University",
+    "clark": "Clark University",
+    "american": "American University",
+    "baylor": "Baylor University",
+    "byu": "Brigham Young University",
+    "drexel": "Drexel University",
+    "lmu": "Loyola Marymount University",
+    "marquette": "Marquette University",
+    "rit": "Rochester Institute of Technology",
+    "stevens": "Stevens Institute of Technology",
+    "syr": "Syracuse University",
+    "tcu": "Texas Christian University",
+    "du": "University of Denver",
+    "usd": "University of San Diego",
+    "wpi": "Worcester Polytechnic Institute",
+    "yu": "Yeshiva University",
+    "fordham": "Fordham University",
+    "loyola chicago": "Loyola University Chicago",
+    "dayton": "University of Dayton",
+    "uvm": "University of Vermont",
+    "howard": "Howard University",
+    "spelman": "Spelman College",
+    "morehouse": "Morehouse College",
+    "sdsu": "San Diego State University",
+    "cal poly slo": "Cal Poly San Luis Obispo",
+    "jmu": "James Madison University",
+    "udel": "University of Delaware"
+  };
+
+  function normalizeName(name) { return name.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim(); }
+  function findCollegeInDB(inputName) {
+    if (COLLEGE_DB[inputName]) return COLLEGE_DB[inputName];
+    const norm = normalizeName(inputName);
+    if (DB_ALIASES[norm]) { const mapped = DB_ALIASES[norm]; if (COLLEGE_DB[mapped]) return COLLEGE_DB[mapped]; }
+    for (const key in COLLEGE_DB) { if (normalizeName(key) === norm) return COLLEGE_DB[key]; }
+    for (const alias in DB_ALIASES) { if (normalizeName(alias) === norm) { const mapped = DB_ALIASES[alias]; if (COLLEGE_DB[mapped]) return COLLEGE_DB[mapped]; } }
+    return null;
+  }
+
+  const PRELOADED_COORDS = {
+    "Clark University": { lat:42.2509, lon:-71.8235, address:"Worcester, MA" },
+    "University of South Florida": { lat:28.0592, lon:-82.4139, address:"Tampa, FL" },
+    "Yale University": { lat:41.3123, lon:-72.9288, address:"New Haven, CT" },
+    "Georgia Institute of Technology": { lat:33.7756, lon:-84.3963, address:"Atlanta, GA" },
+    "UC San Diego": { lat:32.8801, lon:-117.2340, address:"La Jolla, CA" },
+    "UIUC": { lat:40.1020, lon:-88.2272, address:"Urbana-Champaign, IL" },
+    "Iowa State University": { lat:42.0266, lon:-93.6465, address:"Ames, IA" },
+    "Missouri S&T": { lat:37.9538, lon:-91.7735, address:"Rolla, MO" },
+    "University of Alabama": { lat:33.2140, lon:-87.5391, address:"Tuscaloosa, AL" },
+    "University of Minnesota Twin Cities": { lat:44.9740, lon:-93.2277, address:"Minneapolis, MN" },
+    "Fisk University": { lat:36.1671, lon:-86.8045, address:"Nashville, TN" },
+    "Arizona State University": { lat:33.4242, lon:-111.9281, address:"Tempe, AZ" },
+    "Ole Miss": { lat:34.3647, lon:-89.5344, address:"Oxford, MS" },
+    "Michigan State University": { lat:42.7230, lon:-84.4814, address:"East Lansing, MI" }
+  };
+  const PRELOADED_INTERNATIONAL = [
+    { name:"Aalto University", country:"Finland", tier:"reach" },
+    { name:"University of Helsinki", country:"Finland", tier:"reach" },
+    { name:"KTH Royal Institute of Technology", country:"Sweden", tier:"reach" },
+    { name:"University of Oslo", country:"Norway", tier:"reach" }
+  ];
+
+  const MAJORS = [
+    "Accounting", "Aerospace Engineering", "Anthropology", "Architecture", "Art History",
+    "Biochemistry", "Biology", "Biomedical Engineering", "Business Administration",
+    "Chemical Engineering", "Chemistry", "Civil Engineering", "Communication", "Computer Engineering",
+    "Computer Science", "Criminal Justice", "Data Science", "Economics", "Electrical Engineering",
+    "English", "Environmental Science", "Finance", "Fine Arts", "Geography", "Geology",
+    "Graphic Design", "History", "Hospitality Management", "Industrial Engineering", "Information Systems",
+    "International Relations", "Journalism", "Kinesiology", "Linguistics", "Management Information Systems",
+    "Marketing", "Mathematics", "Mechanical Engineering", "Music", "Neuroscience", "Nursing",
+    "Nutrition Science", "Philosophy", "Physics", "Political Science", "Psychology", "Public Health",
+    "Sociology", "Software Engineering", "Statistics", "Supply Chain Management", "Theatre", "Undeclared"
+  ];
+  const majorsDatalist = document.getElementById('majors-list');
+  MAJORS.forEach(m => { const opt = document.createElement('option'); opt.value = m; majorsDatalist.appendChild(opt); });
+
+  // ---------- STATE ----------
+  let currentSession = 'fall2027';
+  let checked = {};
+  let colleges = { reach:[], match:[], safety:[] };
+  let openPhases = new Set([0]);
+  let activeMapFilter = 'all';
+  let map, markersLayer;
+  let geocodeCache = {};
+  let geocodeQueue = [], geocodeTimer = null;
+
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
+  const tabBtns = $$('.tab-btn');
+  const panelRoadmap = $('#panel-roadmap'), panelMap = $('#panel-map'), panelSuggestions = $('#panel-suggestions');
+  const sessionSelect = $('#session-select');
+  const saveStatusEl = $('#save-status');
+  const progFill = $('#prog-fill'), progLabel = $('#prog-label'), progPct = $('#prog-pct');
+  const phasesContainer = $('#phases-container');
+  const satPill = $('#sat-pill');
+  const listReach = $('#list-reach'), listMatch = $('#list-match'), listSafety = $('#list-safety');
+  const inpReach = $('#inp-reach'), inpMatch = $('#inp-match'), inpSafety = $('#inp-safety');
+  const btnReach = $('#btn-reach'), btnMatch = $('#btn-match'), btnSafety = $('#btn-safety');
+  const btnClearAll = $('#btn-clear-all');
+  const mapDiv = $('#us-map');
+  const mapContainer = $('#map-container');
+  const sidePanel = $('#side-panel'), collegeListScroll = $('#college-list-scroll');
+  const filterRow = $('#filter-row');
+  const zoomInBtn = $('#zoom-in'), zoomOutBtn = $('#zoom-out'), zoomResetBtn = $('#zoom-reset');
+  const userSat = $('#user-sat'), userGpa = $('#user-gpa'), userBudget = $('#user-budget');
+  const userResidency = $('#user-residency'), userMajor = $('#user-major');
+  const btnGenerate = $('#btn-generate-suggestions');
+  const btnClearSuggestions = $('#btn-clear-suggestions');
+  const suggestionsResults = $('#suggestions-results');
+  const reachListEl = $('#reach-suggestions .suggestion-list');
+  const matchListEl = $('#match-suggestions .suggestion-list');
+  const safetyListEl = $('#safety-suggestions .suggestion-list');
+
+  function getLSKey() { return `college_roadmap_${currentSession}`; }
+  function saveState() {
+    try {
+      localStorage.setItem(getLSKey(), JSON.stringify({ checked, colleges, openPhases:[...openPhases], geocodeCache }));
+      saveStatusEl.textContent = '✓ Saved';
+    } catch(e) { saveStatusEl.textContent = '⚠ Could not save'; }
+    clearTimeout(saveStatusEl._t);
+    saveStatusEl._t = setTimeout(() => saveStatusEl.textContent = '', 2000);
+  }
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(getLSKey());
+      if (raw) {
+        const d = JSON.parse(raw);
+        checked = d.checked || {};
+        colleges = d.colleges || { reach:[], match:[], safety:[] };
+        openPhases = new Set(d.openPhases || [0]);
+        geocodeCache = d.geocodeCache || {};
+        if (Array.isArray(colleges.international)) {
+          colleges.international.forEach(c => { const tier = c.tier || 'reach'; if (!colleges[tier]) colleges[tier] = []; colleges[tier].push({...c, isInternational: true}); });
+          delete colleges.international;
+        }
+        ['reach','match','safety'].forEach(tier => { colleges[tier] = (colleges[tier]||[]).map(c => ({...c, isInternational: c.isInternational || false})); });
+        return true;
+      }
+    } catch(e) {}
+    return false;
+  }
+
+  function totalTasks() { return PHASES.reduce((s,p) => s + p.tasks.length, 0); }
+  function totalDone() { return Object.values(checked).filter(Boolean).length; }
+  function updateProgress() {
+    const done = totalDone(), total = totalTasks();
+    const pct = total ? Math.round(done/total*100) : 0;
+    progFill.style.width = pct+'%';
+    progLabel.textContent = done + ' of ' + total + ' tasks done';
+    progPct.textContent = pct+'%';
+  }
+
+  function renderPhases() {
+    phasesContainer.innerHTML = '';
+    PHASES.forEach((phase, pi) => {
+      const done = phase.tasks.filter((_,ti) => checked[pi+'-'+ti]).length;
+      const isOpen = openPhases.has(pi);
+      const wrap = document.createElement('div');
+      wrap.className = 'phase' + (phase.current ? ' is-current' : '');
+      wrap.innerHTML = `<div class="phase-head"><div class="dot" style="background:${phase.color}"></div><div class="phase-meta"><div class="phase-name">${phase.title}</div><div class="phase-date">${phase.date}</div></div><span class="phase-ct">${done}/${phase.tasks.length}</span><span class="chev ${isOpen?'open':''}">▼</span></div><div class="phase-body ${isOpen?'open':''}"></div>`;
+      const head = wrap.querySelector('.phase-head');
+      head.addEventListener('click', () => togglePhase(pi));
+      const body = wrap.querySelector('.phase-body');
+      phase.tasks.forEach((t,ti) => {
+        const key = pi+'-'+ti;
+        const isDone = !!checked[key];
+        const lbl = document.createElement('label');
+        lbl.className = 'task';
+        lbl.innerHTML = `<input type="checkbox" ${isDone?'checked':''}><span class="task-lbl${isDone?' done':''}">${t.text}${t.tag?`<span class="tag ${TAG_CLASS[t.tag]}">${TAG_LABEL[t.tag]}</span>`:''}</span>`;
+        lbl.querySelector('input').addEventListener('change', function() { checked[key] = this.checked; saveState(); renderPhases(); updateProgress(); });
+        body.appendChild(lbl);
+      });
+      phasesContainer.appendChild(wrap);
+    });
+  }
+  function togglePhase(pi) { if (openPhases.has(pi)) openPhases.delete(pi); else openPhases.add(pi); saveState(); renderPhases(); }
+
+  function updateSATBadge() {
+    const sat = new Date('2026-09-12');
+    const now = new Date();
+    const diff = Math.ceil((sat - now)/86400000);
+    if (diff > 0) { satPill.textContent = 'SAT: Sep 12, 2026 · '+diff+' days away'; satPill.classList.remove('done'); }
+    else if (diff===0) { satPill.textContent = 'SAT is TODAY — good luck!'; satPill.classList.add('done'); }
+    else { satPill.textContent = 'SAT: Sep 12, 2026 · completed'; satPill.classList.add('done'); }
+  }
+
+  function escapeHTML(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  function enrichCollegeWithDB(collegeObj) {
+    const data = findCollegeInDB(collegeObj.name);
+    if (data) {
+      collegeObj.medianSAT = data.sat;
+      collegeObj.gpa = data.gpa;
+      collegeObj.testPolicy = data.policy;
+      collegeObj.inStateTuition = data.inState;
+      collegeObj.outStateTuition = data.outState;
+      collegeObj.intlTuition = data.intl;
+    }
+  }
+
+  function renderCollegeTags() {
+    ['reach','match','safety'].forEach(tier => {
+      const listEl = tier==='reach'?listReach:tier==='match'?listMatch:listSafety;
+      listEl.innerHTML = colleges[tier].map((c,i) => `<span class="ctag ctag-${tier}">${escapeHTML(c.name)}${c.isInternational ? ' <span class="intl-icon" title="International (not on map)">🌍</span>' : ''}<span class="ctag-x" data-tier="${tier}" data-idx="${i}">✕</span></span>`).join('');
+    });
+    document.querySelectorAll('.ctag-x').forEach(x => { x.addEventListener('click', function(e) { e.stopPropagation(); removeCollege(this.dataset.tier, parseInt(this.dataset.idx)); }); });
+  }
+
+  function addCollege(tier) {
+    const inp = tier==='reach'?inpReach:tier==='match'?inpMatch:inpSafety;
+    const val = inp.value.trim();
+    if (!val) return;
+    if (colleges[tier].some(c => c.name.toLowerCase()===val.toLowerCase())) { alert('Already in list!'); inp.value = ''; return; }
+    const newCollege = { name: val, lat: null, lon: null, address: null, isInternational: false, tier, medianSAT: null, gpa: null, testPolicy: null };
+    enrichCollegeWithDB(newCollege);
+    colleges[tier].push(newCollege);
+    inp.value = '';
+    saveState();
+    renderCollegeTags();
+    renderMapPins();
+    renderSidePanel();
+    if (PRELOADED_COORDS[val]) { const pc = PRELOADED_COORDS[val]; updateCollegeCoords(val, tier, pc.lat, pc.lon, pc.address, false); }
+    else { queueGeocode(val, tier); }
+  }
+
+  function removeCollege(tier, idx) {
+    if (confirm(`Remove ${colleges[tier][idx].name}?`)) { colleges[tier].splice(idx,1); saveState(); renderCollegeTags(); renderMapPins(); renderSidePanel(); }
+  }
+
+  function clearAllColleges() {
+    if (confirm('Remove ALL colleges from every tier? This cannot be undone.')) { colleges.reach = []; colleges.match = []; colleges.safety = []; saveState(); renderCollegeTags(); renderMapPins(); renderSidePanel(); }
+  }
+
+  function queueGeocode(name, tier) {
+    if (PRELOADED_COORDS[name]) { const pc = PRELOADED_COORDS[name]; updateCollegeCoords(name, tier, pc.lat, pc.lon, pc.address, false); return; }
+    if (geocodeCache[name]) { const gc = geocodeCache[name]; updateCollegeCoords(name, tier, gc.lat, gc.lon, gc.address, gc.isInternational); return; }
+    if (PRELOADED_INTERNATIONAL.find(i => i.name.toLowerCase()===name.toLowerCase())) { updateCollegeCoords(name, tier, null, null, 'International', true); return; }
+    geocodeQueue.push({name, tier}); processQueue();
+  }
+
+  function processQueue() {
+    if (geocodeTimer) return;
+    if (!geocodeQueue.length) return;
+    geocodeTimer = setTimeout(() => { geocodeTimer = null; const item = geocodeQueue.shift(); performGeocode(item.name, item.tier); }, 1100);
+  }
+
+  async function performGeocode(name, tier) {
+    try {
+      let resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(name)}`, { headers:{'User-Agent':'CollegeRoadmapApp/1.0'} });
+      let data = await resp.json();
+      if (data.length) {
+        const r = data[0]; const lat = parseFloat(r.lat), lon = parseFloat(r.lon); const addr = r.display_name || `${r.name}, ${r.state||''}`;
+        geocodeCache[name] = {lat, lon, address:addr, isInternational:false}; updateCollegeCoords(name, tier, lat, lon, addr, false);
+      } else {
+        resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(name)}`, { headers:{'User-Agent':'CollegeRoadmapApp/1.0'} });
+        data = await resp.json();
+        if (data.length) {
+          const r = data[0]; const isUS = r.country?.toLowerCase().includes('united states');
+          if (isUS) { const lat = parseFloat(r.lat), lon = parseFloat(r.lon); const addr = r.display_name; geocodeCache[name] = {lat, lon, address:addr, isInternational:false}; updateCollegeCoords(name, tier, lat, lon, addr, false); }
+          else { geocodeCache[name] = {lat:null, lon:null, address:r.country||'International', isInternational:true}; updateCollegeCoords(name, tier, null, null, r.country||'International', true); }
+        } else { geocodeCache[name] = {lat:null, lon:null, address:'Unknown', isInternational:true}; updateCollegeCoords(name, tier, null, null, 'Unknown', true); }
+      }
+    } catch(e) { geocodeCache[name] = {lat:null, lon:null, address:'Geocode failed', isInternational:true}; updateCollegeCoords(name, tier, null, null, 'Geocode failed', true); }
+    saveState(); renderMapPins(); renderSidePanel(); processQueue();
+  }
+
+  function updateCollegeCoords(name, tier, lat, lon, address, isIntl) {
+    const entry = colleges[tier]?.find(c => c.name.toLowerCase()===name.toLowerCase());
+    if (entry) { entry.lat = isIntl ? null : lat; entry.lon = isIntl ? null : lon; entry.address = address; entry.isInternational = isIntl; if (!isIntl) enrichCollegeWithDB(entry); }
+    saveState();
+  }
+
+  function initMap() {
+    if (map) return;
+    map = L.map('us-map', { center: [39.8, -98.5], zoom: 4, zoomControl: false, scrollWheelZoom: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+    zoomInBtn.addEventListener('click', () => map.zoomIn());
+    zoomOutBtn.addEventListener('click', () => map.zoomOut());
+    zoomResetBtn.addEventListener('click', () => map.setView([39.8, -98.5], 4));
+    markersLayer = L.layerGroup().addTo(map);
+    if (panelMap.classList.contains('active')) renderMapPins();
+  }
+
+  function renderMapPins() {
+    if (!map) return;
+    markersLayer.clearLayers();
+    ['reach','match','safety'].forEach(tier => {
+      (colleges[tier]||[]).forEach(c => {
+        if (c.lat && c.lon && !c.isInternational) {
+          const color = tier==='reach'?'#C0392B':tier==='match'?'#378ADD':'#1D9E75';
+          const details = [];
+          if (c.medianSAT) details.push(`Median SAT ${c.medianSAT}`);
+          if (c.gpa) details.push(`GPA ${c.gpa}`);
+          if (c.testPolicy) details.push(`Policy: ${c.testPolicy}`);
+          if (c.inStateTuition) details.push(`In‑state: $${c.inStateTuition.toLocaleString()}`);
+          if (c.outStateTuition) details.push(`Out‑of‑state: $${c.outStateTuition.toLocaleString()}`);
+          const marker = L.circleMarker([c.lat, c.lon], { radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 });
+          marker.bindTooltip(`<b>${escapeHTML(c.name)}</b><br>${tier.toUpperCase()}<br>${c.address||''}${details.length ? '<br>'+details.join(' · ') : ''}`, { direction: 'top', offset: L.point(0, -10) });
+          markersLayer.addLayer(marker);
+        }
+      });
+    });
+  }
+
+  function renderSidePanel() {
+    const all = [];
+    ['reach','match','safety'].forEach(tier => { (colleges[tier]||[]).forEach(c => { if (!c.isInternational) all.push({...c, tier}); }); });
+    const filtered = all.filter(c => activeMapFilter==='all' || c.tier===activeMapFilter);
+    collegeListScroll.innerHTML = filtered.length ? filtered.map(c => {
+      const details = [];
+      if (c.medianSAT) details.push(`SAT ${c.medianSAT}`);
+      if (c.gpa) details.push(`GPA ${c.gpa}`);
+      if (c.testPolicy) details.push(c.testPolicy);
+      const tuitionParts = [];
+      if (c.inStateTuition) tuitionParts.push(`In‑state: $${c.inStateTuition.toLocaleString()}`);
+      if (c.outStateTuition) tuitionParts.push(`Out‑of‑state: $${c.outStateTuition.toLocaleString()}`);
+      return `<div class="cl-item"><div class="cl-dot ${c.tier}"></div><div class="cl-info"><div class="cl-name">${escapeHTML(c.name)} <span class="cl-tier-tag ${c.tier}">${c.tier.toUpperCase()}</span></div><div class="cl-addr">${escapeHTML(c.address||'')}</div>${details.length ? `<div class="cl-details">${details.join(' · ')}</div>` : ''}${tuitionParts.length ? `<div class="tuition-info">${tuitionParts.join(' · ')}</div>` : ''}</div></div>`;
+    }).join('') : '<div class="no-results" style="padding:8px;color:var(--muted);">No US colleges match this filter.</div>';
+  }
+
+  function setupFilters() {
+    filterRow.querySelectorAll('.filter-btn').forEach(btn => { btn.addEventListener('click', function() { filterRow.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active')); this.classList.add('active'); activeMapFilter = this.dataset.filter; renderSidePanel(); }); });
+  }
+
+  function setupTabs() {
+    tabBtns.forEach(btn => btn.addEventListener('click', function() {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      const tab = this.dataset.tab;
+      panelRoadmap.classList.toggle('active', tab==='roadmap');
+      panelMap.classList.toggle('active', tab==='map');
+      panelSuggestions.classList.toggle('active', tab==='suggestions');
+      if (tab==='map') { if (!map) initMap(); else map.invalidateSize(); renderMapPins(); renderSidePanel(); }
+    }));
+  }
+
+  sessionSelect.addEventListener('change', function() { saveState(); currentSession = this.value; loadState(); renderPhases(); updateProgress(); renderCollegeTags(); renderMapPins(); renderSidePanel(); updateSATBadge(); });
+  btnClearAll.addEventListener('click', clearAllColleges);
+
+  // ---------- SUGGESTIONS ----------
+  function getAppropriateTuition(collegeData, residency) {
+    if (residency === 'inState') return collegeData.inState;
+    if (residency === 'outOfState') return collegeData.outState;
+    return collegeData.intl;
+  }
+
+  function generateSuggestions() {
+    const sat = parseInt(userSat.value);
+    const gpa = parseFloat(userGpa.value);
+    const budget = parseInt(userBudget.value);
+    const residency = userResidency.value;
+    if (!sat || !gpa || !budget) { alert('Please fill in SAT, GPA, and budget.'); return; }
+
+    const affordable = [];
+    for (const [name, data] of Object.entries(COLLEGE_DB)) {
+      const tuition = getAppropriateTuition(data, residency);
+      if (tuition !== undefined && tuition <= budget) { affordable.push({ name, ...data, tuition }); }
+    }
+
+    const reach = [], match = [], safety = [];
+    affordable.forEach(c => {
+      const satDiff = c.sat - sat;
+      const gpaDiff = c.gpa - gpa;
+      if (satDiff > 40 || gpaDiff > 0.2) reach.push(c);
+      else if (satDiff < -40 && gpaDiff < -0.2) safety.push(c);
+      else match.push(c);
+    });
+
+    const sortFn = (a,b) => Math.abs(a.sat - sat) - Math.abs(b.sat - sat);
+    reach.sort(sortFn); match.sort(sortFn); safety.sort(sortFn);
+
+    let topReach = reach.slice(0,5);
+    let topMatch = match.slice(0,5);
+    let topSafety = safety.slice(0,5);
+
+    // Guarantee at least 2 per tier by relaxing budget by 10%
+    if (topReach.length < 2 || topMatch.length < 2 || topSafety.length < 2) {
+      const relaxedBudget = Math.ceil(budget * 1.1);
+      const extra = [];
+      for (const [name, data] of Object.entries(COLLEGE_DB)) {
+        const tuition = getAppropriateTuition(data, residency);
+        if (tuition !== undefined && tuition <= relaxedBudget && !affordable.some(c => c.name === name)) {
+          extra.push({ name, ...data, tuition });
+        }
+      }
+      extra.forEach(c => {
+        const satDiff = c.sat - sat;
+        const gpaDiff = c.gpa - gpa;
+        if (satDiff > 40 || gpaDiff > 0.2) reach.push(c);
+        else if (satDiff < -40 && gpaDiff < -0.2) safety.push(c);
+        else match.push(c);
+      });
+      reach.sort(sortFn); match.sort(sortFn); safety.sort(sortFn);
+      topReach = reach.slice(0,5);
+      topMatch = match.slice(0,5);
+      topSafety = safety.slice(0,5);
+    }
+
+    renderSuggestionList(reachListEl, topReach, 'reach', residency);
+    renderSuggestionList(matchListEl, topMatch, 'match', residency);
+    renderSuggestionList(safetyListEl, topSafety, 'safety', residency);
+    suggestionsResults.style.display = 'grid';
+  }
+
+  function renderSuggestionList(container, collegesList, tier, residency) {
+    if (!collegesList.length) {
+      container.innerHTML = '<div class="no-results" style="padding:8px;color:var(--muted);">No colleges found. Try increasing your budget.</div>';
+      return;
+    }
+    container.innerHTML = collegesList.map(c => {
+      const tuition = getAppropriateTuition(c, residency);
+      const details = [];
+      if (c.sat) details.push(`Median SAT ${c.sat}`);
+      if (c.gpa) details.push(`GPA ${c.gpa}`);
+      if (c.policy) details.push(c.policy);
+      const tuitionLabel = residency==='inState'?'In‑state':residency==='outOfState'?'Out‑of‑state':'International';
+      return `<div class="cl-item">
+        <div class="cl-dot ${tier}"></div>
+        <div class="cl-info">
+          <div class="cl-name">${escapeHTML(c.name)} <span class="cl-tier-tag ${tier}">${tier.toUpperCase()}</span></div>
+          ${details.length ? `<div class="cl-details">${details.join(' · ')}</div>` : ''}
+          <div class="tuition-info">${tuitionLabel}: $${tuition.toLocaleString()}/yr</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  btnGenerate.addEventListener('click', generateSuggestions);
+  btnClearSuggestions.addEventListener('click', () => {
+    userSat.value = ''; userGpa.value = ''; userBudget.value = '';
+    userResidency.value = 'inState'; userMajor.value = '';
+    suggestionsResults.style.display = 'none';
+    reachListEl.innerHTML = ''; matchListEl.innerHTML = ''; safetyListEl.innerHTML = '';
+  });
+
+  function preloadDefaultData() {
+    if (currentSession !== 'fall2027') return;
+    if (localStorage.getItem(getLSKey())) return;
+    Object.entries(PRELOADED_COORDS).forEach(([name, pc]) => {
+      const tier = name.includes('Yale')||name.includes('Clark')||name.includes('South Florida')||name.includes('Georgia Tech')||name.includes('UC San Diego')||name.includes('UIUC') ? 'reach' : name.includes('Iowa State')||name.includes('Missouri')||name.includes('Alabama')||name.includes('Minnesota')||name.includes('Fisk') ? 'match' : 'safety';
+      if (!colleges[tier].some(c => c.name===name)) { const college = { name, lat:pc.lat, lon:pc.lon, address:pc.address, isInternational:false, tier, medianSAT:null, gpa:null, testPolicy:null }; enrichCollegeWithDB(college); colleges[tier].push(college); }
+    });
+    PRELOADED_INTERNATIONAL.forEach(pi => { const tier = pi.tier || 'reach'; if (!colleges[tier].some(c => c.name===pi.name)) { colleges[tier].push({ name:pi.name, lat:null, lon:null, address:pi.country, isInternational:true, tier, medianSAT:null, gpa:null, testPolicy:null }); } });
+    checked = { "0-0":true, "0-1":true, "0-4":true };
+    saveState();
+  }
+
+  function boot() {
+    loadState();
+    preloadDefaultData();
+    ['reach','match','safety'].forEach(tier => { colleges[tier] = (colleges[tier]||[]).map(c => { if (typeof c === 'string') { const nc = { name:c, lat:null, lon:null, address:null, isInternational:false, tier, medianSAT:null, gpa:null, testPolicy:null }; enrichCollegeWithDB(nc); return nc; } c.tier = tier; c.isInternational = c.isInternational || false; enrichCollegeWithDB(c); return c; }); });
+    setupTabs();
+    setupFilters();
+    renderPhases();
+    updateProgress();
+    renderCollegeTags();
+    renderSidePanel();
+    updateSATBadge();
+    if (panelMap.classList.contains('active')) initMap();
+    btnReach.addEventListener('click', ()=>addCollege('reach'));
+    btnMatch.addEventListener('click', ()=>addCollege('match'));
+    btnSafety.addEventListener('click', ()=>addCollege('safety'));
+    inpReach.addEventListener('keydown', e=>{if(e.key==='Enter')addCollege('reach')});
+    inpMatch.addEventListener('keydown', e=>{if(e.key==='Enter')addCollege('match')});
+    inpSafety.addEventListener('keydown', e=>{if(e.key==='Enter')addCollege('safety')});
+    btnClearAll.addEventListener('click', clearAllColleges);
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
